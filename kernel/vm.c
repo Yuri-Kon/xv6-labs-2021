@@ -432,3 +432,42 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+//打印页表
+void vmprint(pagetable_t pagetable, int level, uint64 index)
+{
+  //通过递归遍历页表的每一层, 每一层有512项pte
+  for (int i = 0; i < 512; i++)
+  {
+    pte_t pte = pagetable[i];
+
+    //如果页表项无效, 则跳过
+    if ((pte & PTE_V) == 0)
+    {
+      continue;
+    }
+    //打印当前页表项的详细信息
+    uint64 pa = PTE2PA(pte); // 获取物理地址
+
+    //打印缩进和物理地址
+    for (int j = 0; j < level; j++)
+    {
+      printf(" ..");
+    }
+    printf("%d: pte 0x%016llx pa 0x%016llx\n", i, pte, pa);
+    
+    //如果页表项指向下级页表, 递归调用
+    if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0)
+    {
+      uint64 child = PTE2PA(pte);
+      vmprint((pagetable_t) child, level + 1, i);
+    }
+  }
+}
+
+//打印根页表
+void vmprint_root(pagetable_t pagetable)
+{
+  printf("page table 0x%016llx\n", (uint64)pagetable);
+  vmprint(pagetable, 0, 0);
+}
