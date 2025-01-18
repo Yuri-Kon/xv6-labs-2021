@@ -6,7 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 
-
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -673,4 +672,46 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+pte_t *
+walk(pagetable_t pagetable, uint64 va, int alloc)
+{
+  if(va >= MAXVA)
+    panic("walk");
+
+  for(int level = 2; level > 0; level--) {
+    pte_t *pte = &pagetable[PX(level, va)];
+    if(*pte & PTE_V) {
+      pagetable = (pagetable_t)PTE2PA(*pte);
+    } else {
+      if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
+        return 0;
+      memset(pagetable, 0, PGSIZE);
+      *pte = PA2PTE(pagetable) | PTE_V;
+    }
+  }
+  return &pagetable[PX(0, va)];
+}
+
+
+uint64 pgaccess(void *pg, int number, void* store)
+{
+  struct proc *p = myproc();
+  if (p == 0)
+  {
+    return 1;
+  }
+  pagetable_t pagetable = p->pagetable;
+  int ans = 0;
+  for (int i = 0; i < number; i++)
+  {
+    pte_t *pte;
+    pte = walk(pagetable, (uint64)pg + i * PGSIZE, 0);
+    if (pte != 0 && ((*pte) & PTE_A))
+    {
+      ans |= 1 << i;
+      *pte ^= PTE_A;
+    }  
+  }
+  return copyout(pagetable, (uint64)store, (char *)&ans, sizeof(int));
 }
