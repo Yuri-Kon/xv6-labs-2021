@@ -136,3 +136,30 @@ trampoline:
 **`clockintr()`**
 
 定时器中断的处理函数, 增加全局变量`ticks`的值并唤醒等待定时器中断的进程
+
+## Backtrace
+
+这个实验的目的是实现一个回溯(backtrace)功能.
+
+### xv6的栈帧结构
+
+![alt](image/image.png)
+
+fp是当前函数栈顶指针, fp-8指向返回地址, fp-16指向原栈帧(调用函数的fp)
+
+故进行backtrace时, 可以找到调用函数的fp(当前fp-16), 不断向前回溯, 直到抵达当前页的顶部.
+
+对于每一次回溯, 都需要打印函数的返回地址, 即(fp-8)
+
+故`backtrace()`如下:
+
+```c
+void backtrace(void) {
+  uint64 fp = r_fp();//获取当前函数的frame point, 也指向栈帧顶部
+  uint64 top = PGROUNDUP(fp); //获取当前页的顶部, 用于结束回溯
+  printf("backtrace:\n");
+  for(; fp < top; fp = *((uint64*)(fp-16))) { //每次回溯结束后, 需要找到caller的fp, 进入上一个函数
+    printf("%p\n", *((uint64*)(fp-8))); //每次回溯内部, 需要打印返回地址
+  }
+}
+```
